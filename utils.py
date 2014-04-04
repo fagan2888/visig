@@ -111,3 +111,25 @@ def axes_max_y(axes):
         if lm > mx:
             mx = lm
     return mx
+
+'''
+IPython related
+'''
+def _in_ipython():
+    try:
+        __IPYTHON__
+    except NameError:
+        return False
+    else:
+        return True
+
+def ipy():
+    '''if possible, launch ipython'''
+    if _in_ipython():
+        pass
+    else:
+        print("\nattempting to start the ipython shell...\n")
+        try: from IPython import embed
+        except ImportError as imperr : print(imperr)
+        # start IPython whilst maintaining the current namespace and scope
+        return embed()

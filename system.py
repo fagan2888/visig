@@ -27,8 +27,7 @@ class Algorithm(object):
     '''
     This class organizes a collection of signal processing systems into a directed
     graph to produce an algorithm. An algorithm can reports feature computations
-    on the input signal and may produce an ouput signal which is a modified
-    version of the input.
+    on the input signal and may produce an ouput signal
     '''
     def __init__(self):
         pass
@@ -42,6 +41,7 @@ class System(object):
     '''
     def __init__(self, frame_len, parent_sys=None, child_sys=None):
         self.out_frame = Signal(np.zeros(frame_len))
+        # only expect the input frame on each iteration
         self.process = functools.partial(self._process, out_frame=self.out_frame)
         self._prev = parent_sys
         self._next = child_sys
@@ -70,8 +70,8 @@ class System(object):
         raise NotImplementedError("this routine must be implemented in the child class")
 
 class Periodogram(System):
-    def process(self, in_frame, out_framearray):
-        return self.gain*abs(fft(array))
+    def process(self, in_frame, out_frame):
+        out_frame[:] = abs(fft(array))
 
 class QuickRollingMean(System):
     # init settings
@@ -79,22 +79,24 @@ class QuickRollingMean(System):
         transparent = True
         self.Tw = 1.0    # window len in seconds
 
-    def process(self, in_frame, out_frame, *args):
-        M = getattr(self, Tw, len(in_frame))
-        a = 1/M
-        b = 1-a
-        ax = np.zeros(len(vector))
-        for n,v in enumerate(vector):
-            ax[n] = a*v + b*(ax[n-1])
-        return ax
+@sparams(Tw=1.0)
+def rollingmean(in_array, out_array, *args):
+    # M = getattr(self, Tw, len(in_frame))
+    M = rollingmean.Tw * len(in_frame))
+    a = 1/M
+    b = 1-a
+    ax = np.zeros(len(vector))
+    for n,v in enumerate(vector):
+        ax[n] = a*v + b*(ax[n-1])
+    return ax
 
 # can we build a mechanism which composes/cascades systems?
 class Agc(System):
     G  = -20.0  # dBFS
 
-    def process(self, array):
-        mx = self.get_feature('QuickRollingMean')
-        ax = mx(abs(vector), Tw*Fs)
+    def process(self, in_frame, out_frame, *args):
+        # mx = self.get_feature('QuickRollingMean')
+        ax = mx(abs(in_frame), Tw*Fs)
         gains = tg/ax
         return (frame * gains, gains, ax)
         return agc(array)

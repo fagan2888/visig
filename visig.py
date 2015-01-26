@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 '''
 Visig   - visualize and animate signals using mpl
-
-author  : Tyler Goodlet
-email   : tgoodlet@gmail.com
-website : http://tgoodlet.github.com
-license : BSD
-Please feel free to use and modify this, but keep the above information.
 '''
 # TODO:
 # - consider using sox conversion in this module so we can open
@@ -40,11 +34,14 @@ from matplotlib import animation
 import matplotlib.pyplot as plt
 # from matplotlib import pylab
 
-#from scipy.io import wavfile
-import subprocess, os, gc
+# from scipy.io import wavfile
+import subprocess
+import os
+import gc
 
 # visig libs
-from utils import Lict, print_table
+from utils import Lict, print_table, wav2np
+
 
 class SigMng(object):
     '''
@@ -131,9 +128,9 @@ class SigMng(object):
         if isinstance(path, int):
             path = self._signals._get_key(path)
         if path in self._signals:
-            #TODO: loading should be completed by 'Signal' class (i.e. format specific)
+            # TODO: loading should be completed by 'Signal' class (i.e. format specific)
             try:
-                print("loading wave file : ",os.path.basename(path))
+                print("loading wave file : ", os.path.basename(path))
                 # read audio data and params
                 sig, self.Fs, self.bd = wav2np(path)
                 # (self.Fs, sig) = wavfile.read(self.flist[index])
@@ -194,10 +191,11 @@ class SigMng(object):
 
     def _do_fanim(self, fig=None):
         '''run the function based animation once'''
-        if not fig: fig = self._fig
+        if not fig:
+            fig = self._fig
         anim = animation.FuncAnimation(fig,
                                        _set_cursor,
-                                       frames=self.fr,#self._audio_time_gen,
+                                       frames=self.fr,  #self._audio_time_gen,
                                        init_func=self._init_anim,
                                        interval=1000/self._fps,
                                        fargs=self._arts,
@@ -234,14 +232,13 @@ class SigMng(object):
         # t.start()
         self._do_fanim()
 
-
     def _audio_time_gen(self):
         '''generate the audio sample-time for cursor placement
         on each animation frame'''
         # frame_step = self.Fs / self._fps    # samples/frame
         time_step = 1/self._fps
-        self._audio_time = 0                # this can be locked out
-                                        # FIXME: get rid of this hack job!
+        self._audio_time = 0  # this can be locked out
+        # FIXME: get rid of this hack job!
         total_time = len(self[self._cur_sig]/self.Fs)
         while self._audio_time <= total_time:
             yield self._audio_time
@@ -250,15 +247,19 @@ class SigMng(object):
     def _show_corpus(self):
         '''pretty print the internal path list'''
         # TODO: show the vectors in the last column
-        try: print_table(map(os.path.basename, self._signals.keys()))
-        except: raise ValueError("no signal entries exist yet!?...add some first")
+        try:
+            print_table(map(os.path.basename, self._signals.keys()))
+        except:
+            raise ValueError("no signal entries exist yet!?...add some first")
 
     # convenience attrs
-    figure      = property(lambda self: self._fig)
-    mng         = property(lambda self: self._mng)
-    flist       = property(lambda self: [f for f in self.keys()])
-    show_corpus = property(lambda self : self._show_corpus())
-    def get(self, key): self.__getitem__(key)
+    figure = property(lambda self: self._fig)
+    mng = property(lambda self: self._mng)
+    flist = property(lambda self: [f for f in self.keys()])
+    show_corpus = property(lambda self: self._show_corpus())
+
+    def get(self, key):
+        self.__getitem__(key)
 
     def kill_mpl(self):
         # plt.close('all')
@@ -303,7 +304,7 @@ class SigMng(object):
         meant to be used as an interactive interface...
         returns a either a list of axes or a single axis
         '''
-        axes = [axis for axis,lines in self.itr_plot(args, **kwargs)]
+        axes = [axis for axis, lines in self.itr_plot(args, **kwargs)]
         self._prettify()
         if len(axes) < 2:
             axes = axes[0]
@@ -322,7 +323,7 @@ class SigMng(object):
                 self.add_path(i)
                 paths.append(i)
             elif isinstance(i, int):
-                paths.append(self._get_key(i)) # delegate to oid (is this stupid?)
+                paths.append(self._get_key(i))  # delegate to oid (is this stupid?)
 
         # plot the paths (composed generator)
         # return (axis,lines for axis,lines in self._plot(paths, **kwargs))
@@ -421,10 +422,9 @@ class SigMng(object):
 
     def find_wavs(self, sdir):
         '''find all wav files in a dir'''
-        # self.flist = file_scan('.*\.wav$', sdir)
         for i, path in enumerate(file_scan('.*\.wav$', sdir)):
             self[path] = None
-            print("found file : ",path)
+            print("found file : ", path)
         print("found", len(self.flist), "files")
 
     # example callback
@@ -526,27 +526,14 @@ class visarray(np.ndarray):
     def _detect_fmt(selft):
         raise NotImplementedError('Needs to be implemented by subclasses to'
                                   ' actually detect file format.')
-import wave
-def wav2np(f):
-    ''' use the wave module to make a np array'''
-    wf = wave.open(f, 'r')
-    Fs = wf.getframerate()
 
-    # bit depth calc
-    bd = wf.getsampwidth() * 8
-    frames = wf.readframes(wf.getnframes())
-
-    # hack to read data using array protocol type string
-    dt = np.dtype('i' + str(wf.getsampwidth()))
-    sig = np.fromstring(frames, dtype=dt)
-    wf.close()
-    return (sig, Fs, bd)
 
 def cursor(axis, time, colour='r'):
     '''add a vertical line @ time (...looks like a cursor)
     here the x axis should be a time vector such as created in SigMng._plot
     the returned line 'l' can be set with l.set_data([xmin, xmax], [ymin, ymax])'''
     return axis.axvline(x=time, color=colour)
+
 
 def file_scan(re_literal, search_dir, method='find'):
     if method == 'find':
@@ -562,13 +549,14 @@ def file_scan(re_literal, search_dir, method='find'):
             print("scanning logs using 'find' failed with output: " + e.output)
 
     elif method == 'walk':
-        #TODO: os.walk method
+        # TODO: os.walk method
         print("this should normally do an os.walk")
     else:
         print("no other logs scanning method currently exists!")
 
+
 def scr_dim():
-    #TODO: find a more elegant way of doing this...say using
+    # TODO: find a more elegant way of doing this...say using
     # figure.get_size_inches()
     # figure.get_dpi()
     dn = os.path.dirname(os.path.realpath(__file__))
@@ -576,17 +564,20 @@ def scr_dim():
     dims = bres.decode().strip('\n').split('x')  # left associative
     return tuple([int(i.strip()) for i in dims if i != ''])
 
+
 # TODO: should try out pyunit here..
 def get_ss():
     # example how to use the lazy plotter
     ss = SigMng()
-    ss.find_wavs('/home/tyler/code/python/wavs/')
+    ss.find_wavs('/home/tyler/clips/')
     # wp.plot(0)
     return ss
 
+
 def anim_action(artist, data=None, action=Line2D.set_data):
     if data:
-        return lambda iframe, data : artist.action(iframe, data)
+        return lambda iframe, data: artist.action(iframe, data)
+
 
 class Animatee(object):
     '''
@@ -594,9 +585,9 @@ class Animatee(object):
     artists which animate under a sequened timing (i.e. TimedAnimations)
     '''
     def __init__(self, axis, artist=Line2D, data=None):
-        self.axis   = axis
+        self.axis = axis
         self.artist = artist
-        self.data   = data
+        self.data = data
         return self.anim_init()
 
     def anim_init(self):
@@ -612,6 +603,7 @@ class Animatee(object):
         '''
         self.artist.set_data(iframe, 1)
 
+
 class Cursor(Animatee):
     '''a cursor for playback'''
     def anim_init(self):
@@ -621,10 +613,10 @@ class Cursor(Animatee):
     def anim_step(self, iframe, itime):
         self.artist.set_xdata(itime)
 
+
 # def _set_cursor(iframe, *rt_anims):
 def animate(ift, *animatees):
-    '''
-    perform animation step using the frame sequence tuple
+    '''perform animation step using the frame sequence tuple
     and the provided iter of animatees
     '''
     # print(str(time.time()))
@@ -641,37 +633,6 @@ def animate(ift, *animatees):
     # self.figure.show()
     # return self._cursor
 
-import time
-_fps = 15
-_Fs  = 48000
-def get_ift_gen(length, Fs, fps=_fps, init=0):
-    '''
-    create a generator which delivers tuples
-    with (frameindex, timevalue) each frame
-    of the animation
-    Inputs:
-        length - length of the input input animation sequence
-        Fs     - sample rate of the input sequence data
-
-    Optionals:
-        fps    - frame rate (default 15 fps)
-        init   - initial frame sequence number (default 0)
-    '''
-    sample_step = Fs / fps      # samples/frame
-    time_step = 1/fps           # seconds
-    total_time = length / Fs
-        # init_val = 0                # this can be locked out?
-        # _audio_time = 0                # this can be locked out?
-                                       # FIXME: get rid of this hack job!
-    now = time.time()
-    itime = isample = init
-    # total_time = len(ss[0])/_Fs
-    while itime <= total_time:
-        yield isample, itime
-        itime   += time_step
-        isample += sample_step
-    later = time.time()
-    print("total time to animate = "+str(later-now))
 
 # script interface
 if __name__ == '__main__':

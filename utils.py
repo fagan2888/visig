@@ -1,19 +1,24 @@
-#!/usr/bin/env python3
+'''
+handy stuff
+'''
 from collections import OrderedDict, deque
+import numpy
+import wave
 
-'''
-handy data structure related items
-'''
-# select values from an itr by index
+
 def itr_iselect(itr, *indices):
+    '''select values from an itr by index
+    '''
     i_set = set(indices)
     return (e for (i, e) in enumerate(itr) if i in i_set)
 
+
 def print_table(itr, field_header=['signal files'], delim='|'):
-    '''pretty print iterable in a column'''
+    '''Naively pretty print iterable in a column
+    '''
     itr = [i for i in itr]
     max_width = max(len(field) for field in itr)
-    widths = iter(lambda:max_width, 1) # an infinite width generator
+    widths = iter(lambda: max_width, 1)  # an infinite width generator
 
     # print field title/headers
     print('')
@@ -33,16 +38,14 @@ def print_table(itr, field_header=['signal files'], delim='|'):
         #     print('{column:<{width}}'.format(column=col, width=w), delim, '', end='')
         # print()
 
-# like it sounds : an ordered, int subscriptable dict (OID)
-class OrderedIndexedDict(OrderedDict):
-    def __getitem__(self, key):
-        #FIXME: how to handle slices?
-        #(it's weird since we always have to check first and using the list...)
-        if isinstance(key, slice ):
-            print("you've passed a slice! with start",key.start,"and stop",key.stop)
-            return list(self.values())[key]
 
-        # if it's already mapped get the value
+class Lict(OrderedDict):
+    '''An ordered, int subscriptable dict
+    '''
+    def __getitem__(self, key):
+        # FIXME: how to handle slices more correctly?
+        if isinstance(key, slice):
+            return list(self.values())[key]
         elif key in self:
             return OrderedDict.__getitem__(self, key)
 
@@ -53,42 +56,36 @@ class OrderedIndexedDict(OrderedDict):
             # return self._setget_value(key)
 
     def __setitem__(self, key, value):
-        # don't give me ints bitch...(unless you're changing a value)
-        if isinstance(key, int):# raise KeyError("key can not be of type integer")
+        if isinstance(key, int):
             key = self._get_key(key)
         OrderedDict.__setitem__(self, key, value)
 
     def _get_key(self, key):
-        ''' get the key for a given index'''
+        '''get the key for a given index
+        '''
         # check for out of bounds
         l = len(self)
         if l - 1 < key or key < -l :
             raise IndexError("index out of range, len is " + str(l))
 
-        # get the root of the doubly linked list (see the OrderedDict implemenation)
+        # get the root of the doubly linked list (see OrderedDict)
         root = self._OrderedDict__root
         curr = root.next
         act = lambda link : link.next
-
-        # handle -ve indices too
-        if key < 0 :
+        if key < 0 :  # handle -ve indices too
             key += 1
             curr = root.prev
             act = lambda link : link.prev
         # traverse the linked list for our element
         for i in range(abs(key)):
             curr = act(curr)
-        # return the key
         return curr.key
 
-# a handy alias ... with a sloppy ending
-Lict = OrderedIndexedDict
 
-'''
-mpl convenience
-'''
+# mpl stuff
 def label_ymax(axis, x, label):
-    '''add an optional label to the line @ ymax'''
+    '''add an optional label to the line @ ymax
+    '''
     # use ylim for annotation placement
     mx = max(axis.get_ylim())
     ret = axis.annotate(label,
@@ -100,9 +97,11 @@ def label_ymax(axis, x, label):
                   # horizontalalignment='right', verticalalignment='bottom')
     return ret
 
+
 def axes_max_y(axes):
-    '''
-    use max value from the available lines for annotation placement
+    '''Get the max value from the available lines in param:`axes`
+    for annotation placement
+    (a very naive impl)
     '''
     lines = axes.get_lines()
     mx = 0
@@ -112,24 +111,17 @@ def axes_max_y(axes):
             mx = lm
     return mx
 
-'''
-IPython related
-'''
-def _in_ipython():
-    try:
-        __IPYTHON__
-    except NameError:
-        return False
-    else:
-        return True
 
-def ipy():
-    '''if possible, launch ipython'''
-    if _in_ipython():
-        pass
-    else:
-        print("\nattempting to start the ipython shell...\n")
-        try: from IPython import embed
-        except ImportError as imperr : print(imperr)
-        # start IPython whilst maintaining the current namespace and scope
-        return embed()
+def wav2np(fname):
+    '''Load wave file at param:`fname` into a numpy array.
+    Returns a tuple (ndarray, samplerate, bitdepth).
+    '''
+    wf = wave.open(fname, 'r')
+    Fs = wf.getframerate()
+    bd = wf.getsampwidth() * 8  # bit depth calc
+    frames = wf.readframes(wf.getnframes())
+    # hack to read data using array protocol type string
+    dt = numpy.dtype('i' + str(wf.getsampwidth()))
+    sig = numpy.fromstring(frames, dtype=dt)
+    wf.close()
+    return (sig, Fs, bd)

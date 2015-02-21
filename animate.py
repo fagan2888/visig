@@ -6,18 +6,19 @@ from matplotlib import animation, pyplot as plt
 from utils import wav2np
 
 
-def get_ift_gen(length, Fs, fps=15, init=0):
-    '''
-    create a generator which delivers tuples
-    with (frameindex, timevalue) each frame
-    of the animation
-    Inputs:
-        length - length of the input input animation sequence
-        Fs     - sample rate of the input sequence data
-
-    Optionals:
-        fps    - frame rate (default 15 fps)
-        init   - initial frame sequence number (default 0)
+def ift(length, Fs, fps=15, init=0):
+    '''Create a generator which delivers tuples of (frame_index, time_value)
+    each animation frame
+    Parameters
+    ----------
+    length : int
+        length of the input input animation sequence
+    Fs : int
+        sample rate of the input sequence data
+    fps : int
+        frame rate (default 15 fps)
+    init : int
+        initial frame sequence number (default 0)
     '''
     sample_step = Fs / fps      # samples/frame
     time_step = 1/fps           # seconds
@@ -39,7 +40,7 @@ def get_ift_gen(length, Fs, fps=15, init=0):
 def animate(array, fig, func, fs, cb_args=None, fps=15, frames=None,
             init=None):
     if not frames:
-        frames = get_ift_gen(len(array), fs, fps)
+        frames = ift(len(array), fs, fps)
 
     anim = animation.FuncAnimation(
         fig,
@@ -62,12 +63,16 @@ if __name__ == '__main__':
     line = artists[0]
     axes = line.axes
     fig = line.get_figure()
+    # Add a vertical line @ time (...looks like a cursor)
+    # here the x axis should be a time vector such as created in SigMng._plot
+    # the returned line 'l' can be set with
+    # l.set_data([xmin, xmax], [ymin, ymax])
     cursor = axes.axvline(0, color='r')
 
     def callback(framedata):
         isample, itime = framedata
         cursor.set_xdata(isample)
-        return (cursor,)  # must return collection of artists
+        return (cursor,)  # must return iter of artists
 
     init = lambda: artists
     anim = animate(array, fig, callback, fs, init=init)

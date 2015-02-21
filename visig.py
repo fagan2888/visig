@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-Visig   - visualize and animate signals using mpl
+Visig - visualize and animate signals using mpl
 '''
 # TODO:
 # - consider using sox conversion in this module so we can open
@@ -13,10 +13,9 @@ Visig   - visualize and animate signals using mpl
 # - create a callback mechnism which interfaces like a rt algo block and
 #   allows for metric animations used for algo development
 
-# debug
-from imp import reload
-# required libs
+import glob
 import numpy as np
+from animate import ift
 # mpl
 # import matplotlib
 # matplotlib.use('Qt4Agg')
@@ -119,10 +118,6 @@ class SigMng(object):
         else: self._load_sig(key)
         return self._signals[key]
 
-    def __del__(self):
-        self.kill_mpl()
-        self.free_cache()
-
     # TODO: move to Signal class
     def _load_sig(self, path):
         if isinstance(path, int):
@@ -180,7 +175,7 @@ class SigMng(object):
         '''
         # axes = [self._sig2axis(key) for key in self._anim_sig_set]
         # ax = self._sig2axis(self._cur_sig)
-        #4) do addional steps using self._provision_anim
+        # 4) do addional steps using self._provision_anim
         # self._provision_anim()
         # return the artists which won't change during animation (blitting)
         y = tuple(axes for axes in self._fig.get_axes())
@@ -225,11 +220,7 @@ class SigMng(object):
         # set animator routine
         # self._anim_func = self._set_cursor
         # set the frame iterator
-        self._frames_gen = get_ift_gen()
-
-        # t = threading.Thread( target=buffer_proc_stream, kwargs={'proc': p, 'callback': callback} ) #, q))
-        # t.daemon = True  # thread dies with program
-        # t.start()
+        self._frames_gen = ift()
         self._do_fanim()
 
     def _audio_time_gen(self):
@@ -270,10 +261,11 @@ class SigMng(object):
         if self._fig:
             # plt.close(self._fig)
             # self._fig.close()
-            self._fig = None #FIXME: is this necessary?
+            self._fig = None  # FIXME: is this necessary?
 
     def clear(self):
-        #FIXME: make this actually release memory instead of just being a bitch!
+        # FIXME: make this actually release memory instead of
+        # just being a bitch!
         self._signals.clear()
         # gc.collect()
 
@@ -291,10 +283,11 @@ class SigMng(object):
         '''
         if os.path.exists(p):
             # filename, extension = os.path.splitext(p)
-            if p not in self:#._signals.keys():
+            if p not in self:  # ._signals.keys():
                 self[p] = None
             else:
-                print(os.path.basename(p), "is already in our path db -> see grapher.SigPack.show()")
+                print(os.path.basename(p),
+                      "is already in our path db, see grapher.SigPack.show()")
         else:
             raise ValueError("path string not valid?!")
 
@@ -312,8 +305,7 @@ class SigMng(object):
         return axes
 
     def itr_plot(self, items, **kwargs):
-        '''
-        a lazy plotter to save aux space?...doubtful
+        '''A lazy plotter to save aux space?...doubtful
         should be used as the programatic interface to _plot
         '''
         paths = []
@@ -323,20 +315,20 @@ class SigMng(object):
                 self.add_path(i)
                 paths.append(i)
             elif isinstance(i, int):
-                paths.append(self._get_key(i))  # delegate to oid (is this stupid?)
+                paths.append(self._get_key(i))  # delegate to oid
 
         # plot the paths (composed generator)
         # return (axis,lines for axis,lines in self._plot(paths, **kwargs))
-        for axis,lines in self._plot(paths, **kwargs):
+        for axis, lines in self._plot(paths, **kwargs):
             yield axis, lines
 
-    def _plot(self, keys_itr, start_time=0, time_on_x=True, singlefig=True, title=None):
-        '''
-        plot generator - uses 'makes sense' figure / axes settings
+    def _plot(self, keys_itr, start_time=0, time_on_x=True, singlefig=True,
+              title=None):
+        '''Plot generator - uses 'makes sense' figure / axes settings
         inputs: keys_itr -> must be an iterator over names in self.keys()
         '''
-        # FIXME: there is still a massive memory issue when making multiple plot
-        # calls and I can't seem to manage it using the oo-interface or
+        # FIXME: there is still a massive memory issue when making multiple
+        # plot calls and I can't seem to manage it using the oo-interface or
         # pyplot (at least not without closing the figure all the time...lame)
 
         if isinstance(keys_itr, list):
@@ -384,8 +376,10 @@ class SigMng(object):
         # draw_if_interactive()
 
         # set window to half screen size if only one signal
-        if len(keys) < 2: h = self.h/2
-        else: h = self.h
+        if len(keys) < 2:
+            h = self.h/2
+        else:
+            h = self.h
         # try:
         self._mng.resize(self.w, h)
         # except: raise Exception("unable to resize window!?")
@@ -393,7 +387,7 @@ class SigMng(object):
         # self._fig.tight_layout()
 
         # title settings
-        font_style = {'size' : 'small'}
+        font_style = {'size': 'small'}
 
         self._axes_cache.clear()
         # main plot loop
@@ -401,11 +395,11 @@ class SigMng(object):
             # always set 'curr_sig' to last plotted
             self._cur_sig = key
             sig = self[key]
-            slen  = len(sig)
+            slen = len(sig)
 
             # set up a time vector and plot
-            t     = np.linspace(start_time, slen / self.Fs, num=slen)
-            ax    = self._fig.add_subplot(len(keys), 1, icount + 1)
+            t = np.linspace(start_time, slen / self.Fs, num=slen)
+            ax = self._fig.add_subplot(len(keys), 1, icount + 1)
 
             # maintain the key map to our figure's axes
             self._axes_cache[key] = ax
@@ -413,7 +407,8 @@ class SigMng(object):
             lines = ax.plot(t, sig, figure=self._fig)
             ax.set_xlabel('Time (s)', fontdict=font_style)
 
-            if title == None: title = os.path.basename(key)
+            if title is None:
+                title = os.path.basename(key)
             ax.set_title(title, fontdict=font_style)
 
             # ax.figure.canvas.draw()
@@ -422,137 +417,10 @@ class SigMng(object):
 
     def find_wavs(self, sdir):
         '''find all wav files in a dir'''
-        for i, path in enumerate(file_scan('.*\.wav$', sdir)):
+        for i, path in enumerate(glob.iglob("{}/*.wav".format(sdir))):
             self[path] = None
             print("found file : ", path)
         print("found", len(self.flist), "files")
-
-    # example callback
-    def print_cb(self, *fargs):
-        for i in fargs:
-            print(i)
-
-    def register_callback(self):
-        pass
-
-
-class visarray(np.ndarray):
-    '''
-    Extend the standard ndarray to include metadata about
-    the contained vector such as the sample rate 'Fs',
-    bitdepth, etc. and maintain an mpl artist which refers
-    to the array directly.
-
-    For plotting a user should utilize the mpl OO interface
-    by adding the artist to an extant mpl axis via axis.add_artist()
-
-    Motivations for this subclass include:
-        1) aux memory is saved such that data is not duplicated inside mpl
-           (i.e. ax.plot(t, array) creates a new array/Artist each call
-           see matplolib.artist.plot)
-        2) changes to the array data are rendered on the next canvas.draw()
-           (useful for rt animations)
-        3) the instance maintains the same interface as a normal ndarray
-
-    Addtionally, this class offers facilities for loading arbitray (cough audio)
-    data files into np arrays. A last resort brute force procedure is
-    first convert to wav using a system util (ex. sox) and then load from
-    wav to numpy array from the wave module.
-
-    'new_from_template' views onto this array are instantiated with
-    a new internal artist who reference the view data.
-
-    For more info on subclassing ndarrys see here:
-    <link here>
-    '''
-    _artist = Line2D
-
-    def __new__(cls, shape, dtype=float, buffer=None, offset=0,
-                strides=None, order=None,
-                # extra visarray args
-                Fs=None, artist_type=Line2D):
-
-        # call the parent constructor
-        obj = np.ndarray.__new__(cls, shape, dtype,
-                                buffer, offset, strides, order)
-
-        # record the sample rate
-        obj.Fs = Fs
-        # instance our internal artist
-        obj._artist = artist_type(self, self.size)
-        return obj
-    # artist = property(lambda self: self._fill_artist(np.arange(self), self))
-
-    def _get_artist(self):
-        return self._artist
-
-    def _set_artist(self, artist):
-        self._artist = artist
-
-    artist = property(_get_artist, _set_artist)
-
-    def __array_finalize__(self, obj):
-        # for each case self,obj are:
-        # s,'none' when called from ndarray.__new__ i.e. s = visarray()
-        # s,nparr when called by s = nparr.view(visarray)
-        # s,v when assigned by s = v[:4] and type(v) == visarray
-
-        # called from __new__
-        if obj is None: return
-
-        # add attributes on new arrays (for all cases minus instantiation)
-        self.Fs = getattr(obj, 'Fs', None)
-
-    def _load_data(self, path):
-        try:
-            print("loading wave file : ",os.path.basename(path))
-            # read audio data and params
-            sig, self.Fs, self.bd = wav2np(path)
-            # (self.Fs, sig) = wavfile.read(self.flist[index])
-
-            # max for signed integer data
-            amax = 2**(self.bd - 1) - 1
-            sig = sig/amax
-            self._signals[path] = sig
-            print("INFO |->",len(sig),"samples =",len(sig)/self.Fs,"seconds @ ",self.Fs," Hz")
-            return path
-        except:
-            raise Exception("Failed to load wave file!\nEnsure that the wave file exists and is "
-                            "in LPCM format")
-
-    # def __getattr__(self, attr):
-    #     return getattr(self._array, attr)
-
-    def _detect_fmt(selft):
-        raise NotImplementedError('Needs to be implemented by subclasses to'
-                                  ' actually detect file format.')
-
-
-def cursor(axis, time, colour='r'):
-    '''add a vertical line @ time (...looks like a cursor)
-    here the x axis should be a time vector such as created in SigMng._plot
-    the returned line 'l' can be set with l.set_data([xmin, xmax], [ymin, ymax])'''
-    return axis.axvline(x=time, color=colour)
-
-
-def file_scan(re_literal, search_dir, method='find'):
-    if method == 'find':
-        try:
-            found = subprocess.check_output(["find", search_dir, "-regex", re_literal])
-            paths = found.splitlines()
-
-            # if the returned values are 'bytes' then convert to strings
-            str_paths = [os.path.abspath(b.decode()) for b in paths]
-            return str_paths
-
-        except subprocess.CalledProcessError as e:
-            print("scanning logs using 'find' failed with output: " + e.output)
-
-    elif method == 'walk':
-        # TODO: os.walk method
-        print("this should normally do an os.walk")
-    else:
-        print("no other logs scanning method currently exists!")
 
 
 def scr_dim():
@@ -565,76 +433,6 @@ def scr_dim():
     return tuple([int(i.strip()) for i in dims if i != ''])
 
 
-# TODO: should try out pyunit here..
-def get_ss():
-    # example how to use the lazy plotter
+if __name__ == '__main__':
     ss = SigMng()
     ss.find_wavs('/home/tyler/clips/')
-    # wp.plot(0)
-    return ss
-
-
-def anim_action(artist, data=None, action=Line2D.set_data):
-    if data:
-        return lambda iframe, data: artist.action(iframe, data)
-
-
-class Animatee(object):
-    '''
-    base class container which provides an interface for
-    artists which animate under a sequened timing (i.e. TimedAnimations)
-    '''
-    def __init__(self, axis, artist=Line2D, data=None):
-        self.axis = axis
-        self.artist = artist
-        self.data = data
-        return self.anim_init()
-
-    def anim_init(self):
-        '''
-        define the initialization for this animatee
-        '''
-        pass
-
-    def anim_step(self, iframe, itime):
-        '''
-        define the action to be performed on our artist
-        each animation step
-        '''
-        self.artist.set_data(iframe, 1)
-
-
-class Cursor(Animatee):
-    '''a cursor for playback'''
-    def anim_init(self):
-        '''create our vertical line artist'''
-        self.artist = self.artist.axis.axvline(0, color='r')
-
-    def anim_step(self, iframe, itime):
-        self.artist.set_xdata(itime)
-
-
-# def _set_cursor(iframe, *rt_anims):
-def animate(ift, *animatees):
-    '''perform animation step using the frame sequence tuple
-    and the provided iter of animatees
-    '''
-    # print(str(time.time()))
-    # for array,line in fargs:
-    #   line.set_ydata(array)
-    # TODO: can we do a map using the Animatee 'animate' function?
-    # TODO: animatees needs to be a generator which yeilds systems in order
-    for animatee in animatees:
-        animatee.anim_step(*ift)#, animatee.data)
-    return [animatee.artist for animatee in animatees]
-        # cursor_line = f
-        # cursor_line.set_xdata(float(iframe))
-    # self._cursor.set_data(float(sample_time), [0,1])
-    # self.figure.show()
-    # return self._cursor
-
-
-# script interface
-if __name__ == '__main__':
-    print("play with instance 'ss'\ne.g. ss.show_corpus...")
-    ss = get_ss()

@@ -2,12 +2,6 @@
 an algorithm can be applied against at most one input signal
 a signal can have multiple algorithms producing computations on it
 
-make a request to this manager for an algorithm and apply it to an input
-
-This class organizes a collection of signal processing systems into a directed
-graph to produce an algorithm. An algorithm can reports feature computations
-on the input signal and may produce an ouput signal
-
 A class which implements a signal processing system T such that
 in y[n] = T{x[n]}.
 Use this class as a module which may be serialized/parallelized
@@ -22,29 +16,7 @@ def ulaw(src, u=255):
     return np.sign(src) * np.log(1 + u * np.abs(src)) / np.log(1 + u)
 
 
-# @sparams(Tw=1.0)
-def rmean(src, Fs, Tw=1.0):
-    '''Rolling mean of window length `Tw * frame_size`
-    '''
-    M = np.ceil(Tw * Fs)
-    a = 1/M
-    b = 1-a
-    ax = np.zeros(src.size)
-    for n, x in enumerate(src):
-        ax[n] = a*x + b*(ax[n-1])
-    return ax
-
-
-def moving_avg(a, n=3):
-    '''Compute a moving average of window length `n`
-    '''
-    cs = np.cumsum(a, dtype=float)
-    # do s[k] = cs[k+n] - cs[k], where k >= n
-    cs[n:] = cs[n:] - cs[:-n]
-    return cs[n - 1:] / n
-
-
-def rms(x) -> float:
+def rms(x) -> 'x.ndtype':
     return np.sqrt(x.dot(x)/x.size)
 
 
@@ -61,39 +33,58 @@ def db(x):
     20*np.log10(x)
 
 
-# def agc(
-#     src,
-#     absmean: 'src -> abs',
-#     tg: -100. < float < 0. = -20.,
-# ):
-#     '''Automatic gain control
-#     '''
-#     gains = tg / rmean
-#     return gains * src  # normalize to target gains
+# @params(Tw=1.0)
+@visig.plot(loc=(2, 1))
+def rmean(src, Fs, Tw=1.0):
+    '''Rolling mean of window length `Tw * frame_size`
+    '''
+    M = np.ceil(Tw * Fs)
+    a = 1/M
+    b = 1-a
+    ax = np.zeros(src.size)
+    for n, x in enumerate(src):
+        ax[n] = a*x + b*(ax[n-1])
+    return ax
 
 
+@visig.plot  #(fig=1, row=0, col=1)
+def moving_avg(a, n=3):
+    '''Compute a moving average of window length `n`
+    '''
+    cs = np.cumsum(a, dtype=float)
+    # do s[k] = cs[k+n] - cs[k], where k >= n
+    cs[n:] = cs[n:] - cs[:-n]
+    return cs[n - 1:] / n
 
-# can we build a mechanism which composes/cascades systems?
-# class Agc(System):
-#     G = -20.0  # dBFS
 
-#     def process(self, in_frame, out_frame, *args):
-#         # mx = self.get_feature('QuickRollingMean')
-#         ax = mx(abs(in_frame), Tw*Fs)
-#         gains = tg/ax
-#         return (frame * gains, gains, ax)
-#         return agc(array)
+@visig.plot
+def agc(src, tg: -100. < float < 0. = -20.):
+    '''Automatic gain control
+
+    Normalize the input to a target gain using a long
+    term iir psuedo-windowed average.
+    '''
+    return tg / rmean(np.abs(src)) * src
+
 
 if __name__ == '__main__':
-    _src = np.linspace(0, 1, num=512)
+    # @visig.source
+    # def sig():
     import sys
     from utils import wav2np
     wavfile = sys.argv[1]
     sig, fs, bd = wav2np(wavfile)
+    return sig, fs
 
-    iframes = np.append(np.arange(0, sig.size, 512), sig.size)
-    for start, stop in zip(iframes, iframes[1:]):
-        frame = sig[start:stop]
-    abs = np.abs(sig)
-    mavg = moving_avg(abs, n=100)
-    ravg = rmean(abs, fs)
+    # from visig import frameify
+    @visig.sink(sig=sig, Fs=fs)
+    def agc(sig):
+        # offline processing
+        # from visig.np import abs
+        absolute = np.abs(sig)
+        mavg = moving_avg(absolute, n=100)
+        ravg = rmean(absolute, fs)
+        agc_out = agc(sig)
+        return agc_out, ravg
+
+    # visig.run(frameify=True)

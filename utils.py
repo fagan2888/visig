@@ -1,9 +1,13 @@
 '''
 handy stuff
 '''
-from collections import OrderedDict, deque
+import logging
 import numpy
 import wave
+from collections import OrderedDict, deque
+
+
+log = logging.getLogger(__module__.__name___)
 
 
 def itr_iselect(itr, *indices):
@@ -71,11 +75,11 @@ class Lict(OrderedDict):
         # get the root of the doubly linked list (see OrderedDict)
         root = self._OrderedDict__root
         curr = root.next
-        act = lambda link : link.next
-        if key < 0 :  # handle -ve indices too
+        act = lambda link: link.next
+        if key < 0:  # handle -ve indices too
             key += 1
             curr = root.prev
-            act = lambda link : link.prev
+            act = lambda link: link.prev
         # traverse the linked list for our element
         for i in range(abs(key)):
             curr = act(curr)
@@ -88,13 +92,15 @@ def label_ymax(axis, x, label):
     '''
     # use ylim for annotation placement
     mx = max(axis.get_ylim())
-    ret = axis.annotate(label,
-                  xy=(x, mx),
-                  xycoords='data',
-                  xytext=(3, -10),
-                  textcoords='offset points')
-                  # arrowprops=dict(facecolor='black', shrink=0.05),
-                  # horizontalalignment='right', verticalalignment='bottom')
+    ret = axis.annotate(
+        label,
+        xy=(x, mx),
+        xycoords='data',
+        xytext=(3, -10),
+        textcoords='offset points'
+    )
+    # arrowprops=dict(facecolor='black', shrink=0.05),
+    # horizontalalignment='right', verticalalignment='bottom')
     return ret
 
 
@@ -125,3 +131,12 @@ def wav2np(fname):
     sig = numpy.fromstring(frames, dtype=dt)
     wf.close()
     return (sig, Fs, bd)
+
+
+def frameify(sig, width=512):
+    '''Partition input array into frames of size `width`.
+    Simulates real-time buffering of a data stream.
+    '''
+    iframes = numpy.append(numpy.arange(0, sig.size, width), sig.size)
+    for start, stop in zip(iframes, iframes[1:]):
+        yield sig[start:stop]

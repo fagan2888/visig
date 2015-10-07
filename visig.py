@@ -11,3 +11,12 @@ Visig - visualize and animate signals using mpl
 # - capture sreen dimensions using pure python
 # - create a callback mechnism which interfaces like a rt algo block and
 #   allows for metric animations used for algo development
+import wrapt
+
+def sync(**kwargs):
+
+    @wrapt.decorator
+    def wrapper(wrapped, instance, args, kwargs):
+
+
+    return wrapper
